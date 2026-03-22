@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: builder/Dockerfile
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped

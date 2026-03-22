@@ -1,0 +1,38 @@
+business_name: "{{ business_name }}"
+business_type: "{{ business_type }}"
+
+model:
+  path: "/app/models/model.gguf"
+  n_ctx: 2048
+  n_gpu_layers: 0
+  temperature: 0.3
+
+embedding:
+  model_name: "all-MiniLM-L6-v2"
+
+retrieval:
+  top_k: 5
+  relevance_threshold: 0.3
+
+domain_gate:
+  similarity_threshold: 0.25
+  centroid_path: "/app/data/centroid.npy"
+
+faiss:
+  index_path: "/app/data/faiss.index"
+  metadata_path: "/app/data/metadata.json"
+
+chunking:
+  chunk_size: 400
+  chunk_overlap: 50
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+
+admin:
+  port: 8001
+
+data:
+  watch_dir: "/app/data/incoming"
+  docs_dir: "/app/data/docs"
