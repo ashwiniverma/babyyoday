@@ -20,6 +20,18 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Run tests
+      - name: Run unit tests
         run: |
           pytest tests/ -v
+
+      - name: Run evaluation (requires indexed data)
+        if: hashFiles('data/faiss.index') != ''
+        run: |
+          python evaluator/runner.py --no-semantic --output eval_report.json
+
+      - name: Upload eval report
+        if: always() && hashFiles('eval_report.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: eval_report.json

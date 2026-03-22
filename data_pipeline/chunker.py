@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import csv
 import hashlib
+import io
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,6 +35,34 @@ def _read_pdf(path: Path) -> str:
         return ""
 
 
+def _read_csv(path: Path) -> str:
+    """Convert CSV rows into human-readable sentences for embedding.
+
+    Each row becomes a sentence like:
+      "name: Chocolate Cake | price: $32 | category: vegan"
+    This makes the content semantically searchable.
+    """
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        reader = csv.DictReader(io.StringIO(text))
+        rows = list(reader)
+        if not rows:
+            return _read_text_file(path)
+
+        lines: list[str] = []
+        for row in rows:
+            parts = [f"{k.strip()}: {v.strip()}" for k, v in row.items() if v and v.strip()]
+            if parts:
+                lines.append(" | ".join(parts))
+
+        result = "\n".join(lines)
+        logger.info("CSV %s: %d rows converted to text", path.name, len(rows))
+        return result
+    except Exception as e:
+        logger.warning("CSV parse failed for %s (%s) — falling back to raw text", path.name, e)
+        return _read_text_file(path)
+
+
 def _read_docx(path: Path) -> str:
     try:
         from docx import Document
@@ -46,8 +76,10 @@ def _read_docx(path: Path) -> str:
 
 def read_document(path: Path) -> str:
     ext = path.suffix.lower()
-    if ext in (".txt", ".md", ".csv"):
+    if ext in (".txt", ".md"):
         return _read_text_file(path)
+    elif ext == ".csv":
+        return _read_csv(path)
     elif ext == ".pdf":
         return _read_pdf(path)
     elif ext == ".docx":

@@ -15,7 +15,7 @@ retrieval:
   relevance_threshold: 0.3
 
 domain_gate:
-  similarity_threshold: 0.25
+  similarity_threshold: 0.20
   centroid_path: "./data/centroid.npy"
 
 faiss:
