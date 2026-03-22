@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Optional, List
 
 from agent.planner import SubTask
 from inference.context_builder import build_context, extract_source_ids
@@ -16,14 +17,14 @@ logger = logging.getLogger(__name__)
 class SubTaskResult:
     task: SubTask
     chunks: list[RetrievedChunk]
-    answer: str | None
-    validation: ValidationResult | None
+    answer: Optional[str]
+    validation: Optional[ValidationResult]
 
 
 class Executor:
     """Run each sub-task: retrieve context, call SLM, validate."""
 
-    def __init__(self, retriever: Retriever, llm, business_name: str, temperature: float = 0.3):
+    def __init__(self, retriever: Retriever, llm, business_name: str, temperature: float = 0.3):  # noqa: ANN001
         self.retriever = retriever
         self.llm = llm
         self.business_name = business_name

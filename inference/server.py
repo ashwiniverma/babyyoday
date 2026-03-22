@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import yaml
+from typing import Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
@@ -87,7 +88,7 @@ class QueryResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     error: str
-    domain_score: float | None = None
+    domain_score: Optional[float] = None
 
 
 @app.get("/health")
@@ -102,7 +103,7 @@ def health():
     }
 
 
-@app.post("/query", response_model=QueryResponse | ErrorResponse)
+@app.post("/query")
 def query(req: QueryRequest):
     t0 = time.time()
     cfg = _state["config"]
