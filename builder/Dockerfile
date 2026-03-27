@@ -17,10 +17,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # For GPU: set CMAKE_ARGS="-DGGML_CUDA=on" before this line
 RUN pip install --no-cache-dir llama-cpp-python
 
-COPY app_code/inference     ./inference
-COPY app_code/agent         ./agent
-COPY app_code/admin         ./admin
-COPY app_code/data_pipeline ./data_pipeline
+COPY inference     ./inference
+COPY agent         ./agent
+COPY admin         ./admin
+COPY data_pipeline ./data_pipeline
 
 COPY data    ./data
 COPY models  ./models
