@@ -22,12 +22,10 @@ COPY agent         ./agent
 COPY admin         ./admin
 COPY data_pipeline ./data_pipeline
 
-COPY data    ./data
-COPY models  ./models
 COPY config.yaml .
 
-# Create data dirs with correct ownership
-RUN mkdir -p /app/data/incoming /app/data/docs && \
+# Create data and model dirs — data/ is mounted from EFS at runtime, models/ populated via S3
+RUN mkdir -p /app/data/incoming /app/data/docs /app/models && \
     chown -R agent:agent /app
 
 USER agent
