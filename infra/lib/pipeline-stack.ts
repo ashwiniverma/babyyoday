@@ -52,7 +52,7 @@ export class PipelineStack extends cdk.Stack {
               "docker push $REPOSITORY_URI:$IMAGE_TAG",
               "docker push $REPOSITORY_URI:latest",
               // Write imagedefinitions.json for ECS deploy action
-              `printf '[{"name":"InferenceContainer","imageUri":"%s:%s"}]' $REPOSITORY_URI $IMAGE_TAG > imagedefinitions.json`,
+              `printf '[{"name":"InferenceContainer","imageUri":"%s:%s"},{"name":"AdminContainer","imageUri":"%s:%s"}]' $REPOSITORY_URI $IMAGE_TAG $REPOSITORY_URI $IMAGE_TAG > imagedefinitions.json`,
             ],
           },
         },
