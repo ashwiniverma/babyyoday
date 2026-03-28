@@ -41,12 +41,20 @@ export class EcsStack extends cdk.Stack {
     ecsSg.addIngressRule(albSg, ec2.Port.tcp(8000), "Inference from ALB");
     ecsSg.addIngressRule(albSg, ec2.Port.tcp(8001), "Admin from ALB");
 
-    const efsSg = new ec2.SecurityGroup(this, "EfsSg", {
-      vpc: props.vpc,
-      allowAllOutbound: false,
-      description: "EFS - allow NFS from ECS tasks",
+    // Add NFS ingress rule to the EFS filesystem's security group using a raw
+    // CloudFormation resource to avoid a cross-stack dependency cycle.
+    // The EFS SG ID is resolved at deploy time via Fn::Select on the EFS's SG list.
+    new ec2.CfnSecurityGroupIngress(this, "EfsNfsFromEcs", {
+      ipProtocol: "tcp",
+      fromPort: 2049,
+      toPort: 2049,
+      sourceSecurityGroupId: ecsSg.securityGroupId,
+      groupId: cdk.Fn.select(
+        0,
+        props.efsFileSystem.connections.securityGroups.map((sg) => sg.securityGroupId)
+      ),
+      description: "NFS from ECS tasks",
     });
-    efsSg.addIngressRule(ecsSg, ec2.Port.tcp(2049), "NFS from ECS");
 
     // ── API key secret ────────────────────────────────────────────────────────
     const apiKeySecret = new secretsmanager.Secret(this, "ApiKeySecret", {
