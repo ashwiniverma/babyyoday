@@ -203,7 +203,7 @@ export class EcsStack extends cdk.Stack {
         logGroup: adminLogGroup,
       }),
       healthCheck: {
-        command: ["CMD-SHELL", "curl -f http://localhost:8001/ || exit 1"],
+        command: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"],
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(5),
         retries: 3,
@@ -274,7 +274,7 @@ export class EcsStack extends cdk.Stack {
       protocol: elbv2.ApplicationProtocol.HTTP,
       targetType: elbv2.TargetType.IP,
       healthCheck: {
-        path: "/",
+        path: "/health",
         interval: cdk.Duration.seconds(30),
         healthyHttpCodes: "200",
       },
