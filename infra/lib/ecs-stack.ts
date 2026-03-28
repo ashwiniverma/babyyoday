@@ -229,7 +229,7 @@ export class EcsStack extends cdk.Stack {
     this.inferenceService = new ecs.FargateService(this, "InferenceService", {
       cluster,
       taskDefinition: inferenceTaskDef,
-      desiredCount: 1,
+      desiredCount: 0, // pipeline will push image first; scale up after first deploy
       securityGroups: [ecsSg],
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       assignPublicIp: false,
@@ -239,7 +239,7 @@ export class EcsStack extends cdk.Stack {
     const adminService = new ecs.FargateService(this, "AdminService", {
       cluster,
       taskDefinition: adminTaskDef,
-      desiredCount: 1,
+      desiredCount: 0, // pipeline will push image first; scale up after first deploy
       securityGroups: [ecsSg],
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       assignPublicIp: false,
