@@ -41,6 +41,7 @@ new PipelineStack(app, "BabyYodayPipeline", {
   env,
   repository: ecrStack.repository,
   ecsService: ecsStack.inferenceService,
+  adminService: ecsStack.adminService,
 });
 
 app.synth();

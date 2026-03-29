@@ -11,6 +11,7 @@ import { Construct } from "constructs";
 interface PipelineStackProps extends cdk.StackProps {
   repository: ecr.Repository;
   ecsService: ecs.FargateService;
+  adminService: ecs.FargateService;
 }
 
 export class PipelineStack extends cdk.Stack {
@@ -116,15 +117,21 @@ export class PipelineStack extends cdk.Stack {
       ],
     });
 
-    // Deploy: rolling update to ECS Fargate
+    // Deploy: rolling update to both ECS services in parallel
     pipeline.addStage({
       stageName: "Deploy",
       actions: [
         new codepipeline_actions.EcsDeployAction({
-          actionName: "ECS_Deploy",
+          actionName: "Deploy_Inference",
           service: props.ecsService,
           input: buildOutput,
-          deploymentTimeout: cdk.Duration.minutes(10),
+          deploymentTimeout: cdk.Duration.minutes(20),
+        }),
+        new codepipeline_actions.EcsDeployAction({
+          actionName: "Deploy_Admin",
+          service: props.adminService,
+          input: buildOutput,
+          deploymentTimeout: cdk.Duration.minutes(20),
         }),
       ],
     });

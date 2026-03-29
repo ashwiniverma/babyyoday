@@ -20,6 +20,7 @@ interface EcsStackProps extends cdk.StackProps {
 export class EcsStack extends cdk.Stack {
   readonly alb: elbv2.ApplicationLoadBalancer;
   readonly inferenceService: ecs.FargateService;
+  readonly adminService: ecs.FargateService;
 
   constructor(scope: Construct, id: string, props: EcsStackProps) {
     super(scope, id, props);
@@ -119,8 +120,8 @@ export class EcsStack extends cdk.Stack {
     // ── Shared task definition (both services use same image) ─────────────────
     // Inference service task
     const inferenceTaskDef = new ecs.FargateTaskDefinition(this, "InferenceTaskDef", {
-      memoryLimitMiB: 8192,  // 8GB — fits Phi-3-mini quantized
-      cpu: 2048,              // 2 vCPU
+      memoryLimitMiB: 16384, // 16GB — required for sentence-transformers + FAISS + llama.cpp
+      cpu: 4096,             // 4 vCPU
       executionRole,
       taskRole,
       volumes: [
@@ -140,7 +141,8 @@ export class EcsStack extends cdk.Stack {
 
     const inferenceContainer = inferenceTaskDef.addContainer("InferenceContainer", {
       image: ecs.ContainerImage.fromEcrRepository(props.repository, "latest"),
-      command: ["uvicorn", "inference.server:app", "--host", "0.0.0.0", "--port", "8000"],
+      // entrypoint.sh handles: model download from S3, index seeding, then starts uvicorn
+      entryPoint: ["/entrypoint.sh"],
       portMappings: [{ containerPort: 8000 }],
       environment: {
         PYTHONUNBUFFERED: "1",
@@ -169,7 +171,7 @@ export class EcsStack extends cdk.Stack {
 
     // Admin service task
     const adminTaskDef = new ecs.FargateTaskDefinition(this, "AdminTaskDef", {
-      memoryLimitMiB: 1024,
+      memoryLimitMiB: 2048,  // 2GB — lightweight FastAPI, no ML models loaded
       cpu: 512,
       executionRole,
       taskRole,
@@ -190,7 +192,9 @@ export class EcsStack extends cdk.Stack {
 
     const adminContainer = adminTaskDef.addContainer("AdminContainer", {
       image: ecs.ContainerImage.fromEcrRepository(props.repository, "latest"),
-      command: ["uvicorn", "admin.app:admin_app", "--host", "0.0.0.0", "--port", "8001"],
+      // Override entrypoint to run only the admin server — not the full entrypoint.sh
+      // which would also start the inference server and load the embedding model
+      entryPoint: ["uvicorn", "admin.app:admin_app", "--host", "0.0.0.0", "--port", "8001"],
       portMappings: [{ containerPort: 8001 }],
       environment: {
         PYTHONUNBUFFERED: "1",
@@ -240,25 +244,29 @@ export class EcsStack extends cdk.Stack {
       desiredCount: 1,
       minHealthyPercent: 0,
       maxHealthyPercent: 200,
-      circuitBreaker: { rollback: false },
+      circuitBreaker: { enable: false, rollback: false },
       securityGroups: [ecsSg],
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       assignPublicIp: false,
       enableExecuteCommand: true,
     });
+    (this.inferenceService.node.defaultChild as ecs.CfnService)
+      .cfnOptions.updatePolicy = {};
 
-    const adminService = new ecs.FargateService(this, "AdminService", {
+    this.adminService = new ecs.FargateService(this, "AdminService", {
       cluster,
       taskDefinition: adminTaskDef,
       desiredCount: 1,
       minHealthyPercent: 0,
       maxHealthyPercent: 200,
-      circuitBreaker: { rollback: false },
+      circuitBreaker: { enable: false, rollback: false },
       securityGroups: [ecsSg],
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       assignPublicIp: false,
       enableExecuteCommand: true,
     });
+    (this.adminService.node.defaultChild as ecs.CfnService)
+      .cfnOptions.updatePolicy = {};
 
     // ── Target groups + routing ───────────────────────────────────────────────
     const inferenceTargetGroup = new elbv2.ApplicationTargetGroup(this, "InferenceTg", {
@@ -288,7 +296,7 @@ export class EcsStack extends cdk.Stack {
     });
 
     this.inferenceService.attachToApplicationTargetGroup(inferenceTargetGroup);
-    adminService.attachToApplicationTargetGroup(adminTargetGroup);
+    this.adminService.attachToApplicationTargetGroup(adminTargetGroup);
 
     // /query, /health → inference service
     listener.addAction("InferenceRouting", {
