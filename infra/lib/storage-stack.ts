@@ -22,9 +22,9 @@ export class StorageStack extends cdk.Stack {
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
+      autoDeleteObjects: false,
       lifecycleRules: [
         {
-          // Keep old document versions for 90 days
           noncurrentVersionExpiration: cdk.Duration.days(90),
         },
       ],

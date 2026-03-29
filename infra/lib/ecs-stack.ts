@@ -237,17 +237,23 @@ export class EcsStack extends cdk.Stack {
     this.inferenceService = new ecs.FargateService(this, "InferenceService", {
       cluster,
       taskDefinition: inferenceTaskDef,
-      desiredCount: 0,
+      desiredCount: 1,
+      minHealthyPercent: 0,
+      maxHealthyPercent: 200,
+      circuitBreaker: { rollback: false },
       securityGroups: [ecsSg],
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       assignPublicIp: false,
-      enableExecuteCommand: true, // allows `ecs execute-command` for debugging
+      enableExecuteCommand: true,
     });
 
     const adminService = new ecs.FargateService(this, "AdminService", {
       cluster,
       taskDefinition: adminTaskDef,
-      desiredCount: 0,
+      desiredCount: 1,
+      minHealthyPercent: 0,
+      maxHealthyPercent: 200,
+      circuitBreaker: { rollback: false },
       securityGroups: [ecsSg],
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       assignPublicIp: false,

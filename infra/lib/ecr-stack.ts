@@ -13,8 +13,11 @@ export class EcrStack extends cdk.Stack {
       imageScanOnPush: true,
       encryption: ecr.RepositoryEncryption.AES_256,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
+      emptyOnDelete: false,
     });
 
-    new cdk.CfnOutput(this, "RepositoryUri", { value: this.repository.repositoryUri });
+    new cdk.CfnOutput(this, "RepositoryUri", {
+      value: this.repository.repositoryUri,
+    });
   }
 }
