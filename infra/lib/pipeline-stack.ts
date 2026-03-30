@@ -52,13 +52,15 @@ export class PipelineStack extends cdk.Stack {
               "echo Pushing image to ECR...",
               "docker push $REPOSITORY_URI:$IMAGE_TAG",
               "docker push $REPOSITORY_URI:latest",
-              // Write imagedefinitions.json for ECS deploy action
-              `printf '[{"name":"InferenceContainer","imageUri":"%s:%s"},{"name":"AdminContainer","imageUri":"%s:%s"}]' $REPOSITORY_URI $IMAGE_TAG $REPOSITORY_URI $IMAGE_TAG > imagedefinitions.json`,
+              // Separate imagedefinitions files — each deploy action only accepts
+              // containers that exist in its own service's task definition
+              `printf '[{"name":"InferenceContainer","imageUri":"%s:%s"}]' $REPOSITORY_URI $IMAGE_TAG > imagedefinitions-inference.json`,
+              `printf '[{"name":"AdminContainer","imageUri":"%s:%s"}]' $REPOSITORY_URI $IMAGE_TAG > imagedefinitions-admin.json`,
             ],
           },
         },
         artifacts: {
-          files: ["imagedefinitions.json"],
+          files: ["imagedefinitions-inference.json", "imagedefinitions-admin.json"],
         },
       }),
       logging: {
@@ -83,7 +85,6 @@ export class PipelineStack extends cdk.Stack {
 
     // ── Pipeline ──────────────────────────────────────────────────────────────
     const sourceOutput = new codepipeline.Artifact("SourceOutput");
-    const buildOutput = new codepipeline.Artifact("BuildOutput");
 
     const pipeline = new codepipeline.Pipeline(this, "Pipeline", {
       pipelineName: "babyyoday-deploy",
@@ -104,6 +105,9 @@ export class PipelineStack extends cdk.Stack {
       ],
     });
 
+    const inferenceImageDef = new codepipeline.Artifact("InferenceImageDef");
+    const adminImageDef = new codepipeline.Artifact("AdminImageDef");
+
     // Build: Docker image → ECR
     pipeline.addStage({
       stageName: "Build",
@@ -112,7 +116,11 @@ export class PipelineStack extends cdk.Stack {
           actionName: "Docker_Build_Push",
           project: buildProject,
           input: sourceOutput,
-          outputs: [buildOutput],
+          outputs: [inferenceImageDef, adminImageDef],
+          environmentVariables: {
+            INFERENCE_ARTIFACT: { value: "imagedefinitions-inference.json" },
+            ADMIN_ARTIFACT: { value: "imagedefinitions-admin.json" },
+          },
         }),
       ],
     });
@@ -124,13 +132,13 @@ export class PipelineStack extends cdk.Stack {
         new codepipeline_actions.EcsDeployAction({
           actionName: "Deploy_Inference",
           service: props.ecsService,
-          input: buildOutput,
+          input: inferenceImageDef,
           deploymentTimeout: cdk.Duration.minutes(20),
         }),
         new codepipeline_actions.EcsDeployAction({
           actionName: "Deploy_Admin",
           service: props.adminService,
-          input: buildOutput,
+          input: adminImageDef,
           deploymentTimeout: cdk.Duration.minutes(20),
         }),
       ],
