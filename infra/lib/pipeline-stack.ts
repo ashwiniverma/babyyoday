@@ -23,8 +23,8 @@ export class PipelineStack extends cdk.Stack {
       projectName: "babyyoday-docker-build",
       environment: {
         buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
-        privileged: true, // required for Docker builds
-        computeType: codebuild.ComputeType.LARGE, // llama-cpp build is heavy
+        privileged: true,
+        computeType: codebuild.ComputeType.LARGE,
       },
       environmentVariables: {
         REPOSITORY_URI: { value: props.repository.repositoryUri },
@@ -52,8 +52,8 @@ export class PipelineStack extends cdk.Stack {
               "echo Pushing image to ECR...",
               "docker push $REPOSITORY_URI:$IMAGE_TAG",
               "docker push $REPOSITORY_URI:latest",
-              // Separate imagedefinitions files — each deploy action only accepts
-              // containers that exist in its own service's task definition
+              // Single artifact with both files — each EcsDeployAction uses imageFile
+              // to pick only the file relevant to its service
               `printf '[{"name":"InferenceContainer","imageUri":"%s:%s"}]' $REPOSITORY_URI $IMAGE_TAG > imagedefinitions-inference.json`,
               `printf '[{"name":"AdminContainer","imageUri":"%s:%s"}]' $REPOSITORY_URI $IMAGE_TAG > imagedefinitions-admin.json`,
             ],
@@ -74,7 +74,6 @@ export class PipelineStack extends cdk.Stack {
       },
     });
 
-    // Grant CodeBuild permission to push to ECR
     props.repository.grantPullPush(buildProject);
     buildProject.addToRolePolicy(
       new iam.PolicyStatement({
@@ -85,6 +84,7 @@ export class PipelineStack extends cdk.Stack {
 
     // ── Pipeline ──────────────────────────────────────────────────────────────
     const sourceOutput = new codepipeline.Artifact("SourceOutput");
+    const buildOutput = new codepipeline.Artifact("BuildOutput");
 
     const pipeline = new codepipeline.Pipeline(this, "Pipeline", {
       pipelineName: "babyyoday-deploy",
@@ -105,10 +105,6 @@ export class PipelineStack extends cdk.Stack {
       ],
     });
 
-    const inferenceImageDef = new codepipeline.Artifact("InferenceImageDef");
-    const adminImageDef = new codepipeline.Artifact("AdminImageDef");
-
-    // Build: Docker image → ECR
     pipeline.addStage({
       stageName: "Build",
       actions: [
@@ -116,29 +112,25 @@ export class PipelineStack extends cdk.Stack {
           actionName: "Docker_Build_Push",
           project: buildProject,
           input: sourceOutput,
-          outputs: [inferenceImageDef, adminImageDef],
-          environmentVariables: {
-            INFERENCE_ARTIFACT: { value: "imagedefinitions-inference.json" },
-            ADMIN_ARTIFACT: { value: "imagedefinitions-admin.json" },
-          },
+          outputs: [buildOutput],
         }),
       ],
     });
 
-    // Deploy: rolling update to both ECS services in parallel
+    // Each EcsDeployAction uses imageFile to pick only its own container definition
     pipeline.addStage({
       stageName: "Deploy",
       actions: [
         new codepipeline_actions.EcsDeployAction({
           actionName: "Deploy_Inference",
           service: props.ecsService,
-          input: inferenceImageDef,
+          imageFile: buildOutput.atPath("imagedefinitions-inference.json"),
           deploymentTimeout: cdk.Duration.minutes(20),
         }),
         new codepipeline_actions.EcsDeployAction({
           actionName: "Deploy_Admin",
           service: props.adminService,
-          input: adminImageDef,
+          imageFile: buildOutput.atPath("imagedefinitions-admin.json"),
           deploymentTimeout: cdk.Duration.minutes(20),
         }),
       ],
