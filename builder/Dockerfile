@@ -4,10 +4,11 @@ RUN groupadd -r agent && useradd -r -g agent -m agent
 
 WORKDIR /app
 
-# System deps for llama-cpp-python CPU build
+# System deps for llama-cpp-python CPU build + curl for health checks
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
